@@ -10,7 +10,9 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "watchdog-db"
-database_id = "(placeholder-db-id)"
+database_id = "4f8df1a4-020b-4a41-8964-0ba992a987dd"
 
-[triggers]
-crons = ["0 0 * * *"]
+# [triggers]
+# crons = ["0 0 * * *"]
+# Note: Free Cloudflare accounts have a 5-cron trigger limit. 
+# Daily digest can be triggered via /api/digest/send via cron-job.org or GitHub Actions.
