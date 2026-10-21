@@ -1,0 +1,16 @@
+name: Daily Morning Contract Digest
+
+on:
+  schedule:
+    # รันทุกวันเวลา 00:00 UTC (เท่ากับ 07:00 น. เวลาประเทศไทย ICT)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # อนุญาตให้กดสั่งรันด้วยมือเพื่อทดสอบได้จากหน้า GitHub Actions
+
+jobs:
+  trigger-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Morning Digest API
+        run: |
+          echo "⏰ Sending Morning Contract Digest at 07:00 ICT..."
+          curl -s -X POST https://construction-contract-watchdog.natt-charoen.workers.dev/api/digest/send
