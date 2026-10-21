@@ -5,11 +5,39 @@
 import { buildMorningDigest, todayISO } from './logic.js';
 
 /**
+ * ดึง Token ของ LINE จากตัวแปร env หรือจากฐานข้อมูล system_settings
+ */
+export async function getLineToken(env, db) {
+  let token = env?.LINE_CHANNEL_TOKEN || env?.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token && db) {
+    try {
+      const row = await db.prepare("SELECT value FROM system_settings WHERE key = 'LINE_CHANNEL_ACCESS_TOKEN'").first();
+      token = row?.value || null;
+    } catch {}
+  }
+  return token;
+}
+
+/**
+ * ดึง Secret ของ LINE จากตัวแปร env หรือจากฐานข้อมูล system_settings
+ */
+export async function getLineSecret(env, db) {
+  let secret = env?.LINE_CHANNEL_SECRET;
+  if (!secret && db) {
+    try {
+      const row = await db.prepare("SELECT value FROM system_settings WHERE key = 'LINE_CHANNEL_SECRET'").first();
+      secret = row?.value || null;
+    } catch {}
+  }
+  return secret;
+}
+
+/**
  * ตรวจสอบความถูกต้องของ LINE Webhook Signature ด้วย WebCrypto (Native ใน Cloudflare Workers)
  */
-export async function verifyLineSignature(env, bodyBuffer, signatureHeader) {
-  const secret = env.LINE_CHANNEL_SECRET;
-  if (!secret) return true; // ถ้าไม่ได้ใส่ secret ใน local dev ให้ bypass ได้
+export async function verifyLineSignature(env, bodyBuffer, signatureHeader, db) {
+  const secret = await getLineSecret(env, db);
+  if (!secret) return true; // ถ้ายังไม่ได้ตั้งค่า secret ให้ bypass ได้
   if (!signatureHeader) return false;
 
   const enc = new TextEncoder();
@@ -28,8 +56,8 @@ export async function verifyLineSignature(env, bodyBuffer, signatureHeader) {
 /**
  * ส่งข้อความ Push Message ไปยัง LINE User หรือ Group
  */
-export async function linePush(env, targetId, text) {
-  const token = env.LINE_CHANNEL_TOKEN || env.LINE_CHANNEL_ACCESS_TOKEN;
+export async function linePush(env, targetId, text, db) {
+  const token = await getLineToken(env, db);
   if (!token) {
     console.warn('⚠️ ขาดการตั้งค่า LINE_CHANNEL_TOKEN');
     return { ok: false, error: 'no_token' };
@@ -66,8 +94,8 @@ export async function linePush(env, targetId, text) {
 /**
  * ส่งข้อความ Reply ตอบกลับ Webhook ของ LINE
  */
-export async function lineReply(env, replyToken, text) {
-  const token = env.LINE_CHANNEL_TOKEN || env.LINE_CHANNEL_ACCESS_TOKEN;
+export async function lineReply(env, replyToken, text, db) {
+  const token = await getLineToken(env, db);
   if (!token || !replyToken) return false;
 
   const payload = {
@@ -119,7 +147,7 @@ export async function handleLineWebhook(env, db, body, fetchAllProjectsWithMetri
           `📌 คำสั่งที่พิมพ์ได้:\n` +
           `- พิมพ์ "สรุป" เพื่อดูสถานะสัญญาทั้งหมดตอนนี้\n` +
           `- หรือเปิดแอปผ่านเมนูด้านล่างเพื่อเพิ่มโครงการ/ขยายสัญญาได้ทันทีครับ`;
-        await lineReply(env, ev.replyToken, welcomeText);
+        await lineReply(env, ev.replyToken, welcomeText, db);
       }
       continue;
     }
@@ -149,16 +177,16 @@ export async function handleLineWebhook(env, db, body, fetchAllProjectsWithMetri
           const projects = await fetchAllProjectsWithMetrics(db);
           const appUrl = env.APP_URL || '';
           const digest = buildMorningDigest(projects, todayISO(), appUrl);
-          await lineReply(env, ev.replyToken, digest || '✅ ขณะนี้ไม่มีโครงการที่กำลังดำเนินการอยู่ครับ');
+          await lineReply(env, ev.replyToken, digest || '✅ ขณะนี้ไม่มีโครงการที่กำลังดำเนินการอยู่ครับ', db);
         } else {
-          await lineReply(env, ev.replyToken, 'กำลังดึงข้อมูลโครงการ กรุณารอสักครู่...');
+          await lineReply(env, ev.replyToken, 'กำลังดึงข้อมูลโครงการ กรุณารอสักครู่...', db);
         }
       } else if (['help', 'วิธีใช้', 'คู่มือ'].includes(msg)) {
         const helpText = `📖 วิธีใช้งาน Construction Watchdog:\n\n` +
           `1. พิมพ์ "สรุป" -> ระบบจะรายงานสถานะสัญญาทุกโครงการแบบสรุปด่วน\n` +
           `2. ระบบจะส่งแจ้งเตือนอัตโนมัติทุกเช้า 07:00 น.\n` +
           `3. สำหรับการเพิ่มโครงการ หรือขยายอายุสัญญา ให้เปิดผ่านลิงก์ Web App: ${env.APP_URL || '(ตั้งค่าใน .dev.vars)'}`;
-        await lineReply(env, ev.replyToken, helpText);
+        await lineReply(env, ev.replyToken, helpText, db);
       }
     }
   }

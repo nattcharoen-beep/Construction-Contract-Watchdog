@@ -244,14 +244,51 @@ app.post('/api/digest/send', async c => {
   const results = [];
 
   for (const r of recipients) {
-    const res = await line.linePush(c.env, r.target_id, digest);
+    const res = await line.linePush(c.env, r.target_id, digest, db);
     results.push({ target_id: r.target_id, result: res });
   }
 
   return c.json({ ok: true, recipients_count: recipients.length, results });
 });
 
-// 11.1 รายชื่อผู้รับการแจ้งเตือน LINE ทั้งหมด
+// 11.1 ตั้งค่า LINE Bot (Token & Secret ผ่านหน้า Web UI)
+app.get('/api/settings/line', async c => {
+  const db = c.env.DB;
+  const token = await line.getLineToken(c.env, db);
+  const secret = await line.getLineSecret(c.env, db);
+  const origin = new URL(c.req.url).origin;
+  return c.json({
+    has_token: !!token,
+    has_secret: !!secret,
+    token_masked: token ? `${token.slice(0, 6)}...${token.slice(-4)}` : null,
+    webhook_url: `${origin}/api/line/webhook`
+  });
+});
+
+app.post('/api/settings/line', async c => {
+  const db = c.env.DB;
+  if (!db) return c.json({ error: 'DB not bound' }, 500);
+  const body = await c.req.json();
+  const token = (body.token || '').trim();
+  const secret = (body.secret || '').trim();
+
+  if (token) {
+    await db.prepare(`
+      INSERT INTO system_settings (key, value) VALUES ('LINE_CHANNEL_ACCESS_TOKEN', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+    `).bind(token).run();
+  }
+  if (secret) {
+    await db.prepare(`
+      INSERT INTO system_settings (key, value) VALUES ('LINE_CHANNEL_SECRET', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+    `).bind(secret).run();
+  }
+
+  return c.json({ ok: true, message: 'บันทึกการตั้งค่า LINE สำเร็จ' });
+});
+
+// 11.2 รายชื่อผู้รับการแจ้งเตือน LINE ทั้งหมด
 app.get('/api/line/recipients', async c => {
   const db = c.env.DB;
   if (!db) return c.json({ recipients: [] });
@@ -293,7 +330,7 @@ app.delete('/api/line/recipients/:id', async c => {
 app.post('/api/line/webhook', async c => {
   const bodyBuf = await c.req.raw.clone().arrayBuffer();
   const sig = c.req.header('x-line-signature');
-  const valid = await line.verifyLineSignature(c.env, bodyBuf, sig);
+  const valid = await line.verifyLineSignature(c.env, bodyBuf, sig, c.env.DB);
   if (!valid) return c.text('Invalid signature', 401);
 
   let body = {};
@@ -340,7 +377,7 @@ async function scheduled(event, env, ctx) {
 
   for (const r of recipients) {
     try {
-      await line.linePush(env, r.target_id, digest);
+      await line.linePush(env, r.target_id, digest, db);
     } catch (e) {
       console.error(`Failed to push to ${r.target_id}:`, e.message);
     }

@@ -849,7 +849,57 @@ function copyDigestToClipboard() {
 
 async function openLineRegisterModal() {
   openModal('modal-register');
-  await loadLineRecipients();
+  await Promise.all([loadLineSettings(), loadLineRecipients()]);
+}
+
+async function loadLineSettings() {
+  try {
+    const res = await fetch('/api/settings/line');
+    if (!res.ok) return;
+    const data = await res.json();
+    const statusEl = document.getElementById('line-token-status');
+    const webhookEl = document.getElementById('setting-webhook-url');
+    if (webhookEl && data.webhook_url) {
+      webhookEl.value = data.webhook_url;
+    }
+    if (statusEl) {
+      if (data.has_token) {
+        statusEl.className = 'px-2 py-0.5 rounded-full text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800';
+        statusEl.textContent = '✓ มี Token แล้ว (' + (data.token_masked || '') + ')';
+      } else {
+        statusEl.className = 'px-2 py-0.5 rounded-full text-[10px] bg-amber-950 text-amber-400 border border-amber-800';
+        statusEl.textContent = 'ยังไม่ได้ใส่ Token';
+      }
+    }
+  } catch (e) {
+    console.error('Error loading LINE settings:', e);
+  }
+}
+
+async function saveLineSettings() {
+  const tokenInput = document.getElementById('setting-line-token');
+  const token = (tokenInput?.value || '').trim();
+  if (!token) {
+    showToast('กรุณากรอก Channel Access Token', 'error');
+    return;
+  }
+  try {
+    const res = await fetch('/api/settings/line', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('บันทึก Channel Access Token สำเร็จแล้ว!', 'success');
+      tokenInput.value = '';
+      await loadLineSettings();
+    } else {
+      showToast(data.error || 'เกิดข้อผิดพลาดในการบันทึก', 'error');
+    }
+  } catch (err) {
+    showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+  }
 }
 
 async function loadLineRecipients() {
@@ -1074,6 +1124,17 @@ document.addEventListener('DOMContentLoaded', () => {
       handleRegisterRecipient(state.liffProfile.userId, state.liffProfile.displayName, 'user');
     } else {
       showToast('ไม่พบข้อมูล Profile ของ LINE', 'error');
+    }
+  });
+
+  // 11. LINE Token Settings
+  document.getElementById('btn-save-line-token')?.addEventListener('click', saveLineSettings);
+  document.getElementById('btn-copy-webhook')?.addEventListener('click', () => {
+    const url = document.getElementById('setting-webhook-url')?.value;
+    if (url) {
+      navigator.clipboard.writeText(url).then(() => {
+        showToast('คัดลอก Webhook URL เรียบร้อยแล้ว', 'success');
+      });
     }
   });
 });

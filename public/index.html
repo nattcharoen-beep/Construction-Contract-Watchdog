@@ -639,6 +639,37 @@
         </button>
       </div>
 
+      <!-- Bot Setup Section -->
+      <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-700/80 mb-5 text-xs">
+        <div class="flex items-center justify-between mb-2">
+          <div class="font-bold text-amber-400 flex items-center gap-1.5">
+            <span>⚙️</span>
+            <span>ตั้งค่าบอท LINE (สำหรับส่งแจ้งเตือน)</span>
+          </div>
+          <span id="line-token-status" class="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-400">กำลังตรวจ...</span>
+        </div>
+        
+        <p class="text-slate-400 text-[11px] mb-3">ใส่ Channel Access Token จาก LINE Developers เพื่อให้ระบบยิงข้อความเข้ากลุ่ม/ผู้ใช้ได้</p>
+        
+        <!-- Webhook URL Box -->
+        <div class="mb-3">
+          <label class="block text-[11px] text-slate-400 mb-1">1. Webhook URL (นำไปวางใน LINE Developers Console):</label>
+          <div class="flex items-center gap-1.5">
+            <input type="text" id="setting-webhook-url" readonly value="https://construction-contract-watchdog.natt-charoen.workers.dev/api/line/webhook" class="flex-1 px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-emerald-400 font-mono text-[11px] select-all">
+            <button type="button" id="btn-copy-webhook" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 text-[11px] active:scale-95 transition">คัดลอก</button>
+          </div>
+        </div>
+
+        <!-- Token Input -->
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">2. Channel Access Token (Long-lived):</label>
+          <div class="flex items-center gap-1.5">
+            <input type="password" id="setting-line-token" placeholder="วาง Channel Access Token ที่นี่..." class="flex-1 px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-[11px]">
+            <button type="button" id="btn-save-line-token" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white font-bold text-[11px] active:scale-95 transition shadow">บันทึก</button>
+          </div>
+        </div>
+      </div>
+
       <!-- LIFF Quick Connect Box (if opened inside LINE) -->
       <div id="liff-quick-box" class="p-4 rounded-2xl bg-emerald-950/50 border border-emerald-500/40 text-xs sm:text-sm mb-4">
         <div class="flex items-center space-x-3 mb-2">
